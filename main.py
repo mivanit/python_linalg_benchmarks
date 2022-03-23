@@ -33,6 +33,8 @@ n_trials : int = 10,
 timerfunc_key : str = 'timeit',
 ```
 
+By [Michael Ivanitskiy](mivanit.github.io)
+
 """
 
 from typing import *

@@ -23,6 +23,8 @@ check_pytorch py
 ```
 
 where `py` is whatever python version you are using (including aliases defined in `.bashrc`)
+
+By [Michael Ivanitskiy](mivanit.github.io)
 """
 
 import sys
