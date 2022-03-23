@@ -1,9 +1,45 @@
+"""Benchmark either a single operation for many matrix sizes, or multiple operations for a single matrix size 
+
+# Usage:
+
+## Single operation:
+
+python main.py <oper> [dim] [keys_include] [n_trials]
+
+where `<oper>` is one of 'QR', 'ATA', 'chol'
+
+`dim` is of format `<start>,<stop>,<scale>,<num>` where `start` and `stop` are floats, `scale` is one of `log` or `lin`, and `num` is an integer.
+
+if `keys_include` is specified, it is a comma-separated list of methods to benchmark. if not, we will evaluate all relevant methods
+
+function args:
+```python
+dims : Union[str,tuple] = '2,3,log,3',
+keys_include : Union[str,tuple] = '',
+n_trials : int = 10,
+```
+
+
+## Multiple operations:
+
+python main.py table [dim] [keys_include] [n_trials]
+
+	'table' : create_table,
+
+function args:
+```python
+n : int = 3000, 
+n_trials : int = 10, 
+timerfunc_key : str = 'timeit',
+```
+
+"""
+
 from typing import *
 import time
 import timeit
 import json
 import sys
-from unicodedata import decomposition
 
 import numpy as np
 import scipy.linalg
@@ -295,88 +331,44 @@ def arg_to_space(arg : Union[str,Tuple]) -> Iterable[float]:
 
 
 
-def main_QR_eval(
-		dims : Union[str,tuple] = '2,3,log,3',
-		keys_include : Union[str,tuple] = '',
-		n_trials : int = 10,
-	):
+def main_method_eval_factory(
+		name : str,
+		methods_dict : Dict,
+	) -> Callable:
 
-	dims_arr : np.ndarray = np.array(arg_to_space(dims))
-	tup_keys_include : tuple = arg_to_tuple(keys_include)
-	if len(tup_keys_include) == 0:
-		tup_keys_include = tuple(EVAL_QR.keys())
-	
-	data_all = plot_timings(
-		name = 'QR decomposition',
-		dims = dims_arr,
-		method_dict = { 
-			k:v
-			for k,v in EVAL_QR.items()
-			if k in tup_keys_include
-		},
-		n_trials = n_trials,
-	)
+	def main_method_eval(
+			dims : Union[str,tuple] = '2,3,log,3',
+			keys_include : Union[str,tuple] = '',
+			n_trials : int = 10,
+			timerfunc_key : str = 'timeit',
+		) -> Dict:
 
-	# dump the raw data as json to the command line
-	print(jsondumps({
-		'all': data_all,
-	}))
+		dims_arr : np.ndarray = np.array(arg_to_space(dims))
+		tup_keys_include : tuple = arg_to_tuple(keys_include)
+		if len(tup_keys_include) == 0:
+			tup_keys_include = tuple(methods_dict.keys())
+		
+		data_all = plot_timings(
+			name = name,
+			dims = dims_arr,
+			method_dict = { 
+				k:v
+				for k,v in methods_dict.items()
+				if k in tup_keys_include
+			},
+			n_trials = n_trials,
+			timerfunc_key = timerfunc_key,
+		)
 
+		# dump the raw data as json to the command line
+		print(jsondumps({
+			'all': data_all,
+		}))
 
-def main_ATA_eval(
-		dims : Union[str,tuple] = '2,3,log,3',
-		keys_include : Union[str,tuple] = '',
-		n_trials : int = 10,
-	):
+		return data_all
 
-	dims_arr : np.ndarray = np.array(arg_to_space(dims))
-	tup_keys_include : tuple = arg_to_tuple(keys_include)
-	if len(tup_keys_include) == 0:
-		tup_keys_include = tuple(EVAL_QR.keys())
+	return main_method_eval
 
-	# evaluate all methods
-	data_all = plot_timings(
-		name = '$A^T A$ matrix multiplication',
-		dims = dims_arr,
-		method_dict = { 
-			k:v
-			for k,v in EVAL_MATMUL_ATA.items()
-			if k in tup_keys_include
-		},
-		n_trials = n_trials,
-	)
-
-	print(jsondumps({
-		'all': data_all,
-	}))
-
-
-def main_chol_eval(
-		dims : Union[str,tuple] = '2,3,log,3',
-		keys_include : Union[str,tuple] = '',
-		n_trials : int = 10,
-	):
-
-	dims_arr : np.ndarray = np.array(arg_to_space(dims))
-	tup_keys_include : tuple = arg_to_tuple(keys_include)
-	if len(tup_keys_include) == 0:
-		tup_keys_include = tuple(EVAL_QR.keys())
-
-
-	data_all = plot_timings(
-		name = 'Cholesky decomposition',
-		dims = dims_arr,
-		method_dict = { 
-			k:v
-			for k,v in EVAL_CHOL.items()
-			if k in tup_keys_include
-		},
-		n_trials = n_trials,
-	)
-
-	print(jsondumps({
-		'all': data_all,
-	}))
 
 
 def _get_only_timing(data : dict):
@@ -427,10 +419,15 @@ def create_table(
 	print(df.to_markdown(index = False))
 
 if __name__ == '__main__':
+	import sys
+	if any(x in sys.argv for x in ('-h','--help', 'h', 'help')):
+		print(__doc__)
+		print('='*50)
+
 	import fire
 	fire.Fire({
-		'QR' : main_QR_eval,
-		'ATA' : main_ATA_eval,
-		'chol' : main_chol_eval,
+		'QR' : main_method_eval_factory('QR decomposition', EVAL_QR),
+		'ATA' : main_method_eval_factory('$A^T A$ matrix multiplication', EVAL_MATMUL_ATA),
+		'chol' : main_method_eval_factory('Cholesky decomposition', EVAL_CHOL),
 		'table' : create_table,
 	})
